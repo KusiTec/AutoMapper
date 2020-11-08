@@ -28,10 +28,14 @@ namespace AutoMapper
             _readAccessors = new Lazy<MemberInfo[]>(BuildReadAccessors);
             _writeAccessors = new Lazy<MemberInfo[]>(BuildWriteAccessors);
             _nameToMember = new Lazy<SourceMembers>(PossibleNames, isThreadSafe: false);
-            _constructors = new Lazy<ConstructorParameters[]>(GetConstructors, isThreadSafe: false);
+            if (config.ConstructorMappingEnabled)
+            {
+                _constructors = new Lazy<ConstructorParameters[]>(GetConstructors, isThreadSafe: false);
+            }
         }
-        private ConstructorParameters[] GetConstructors() => 
-            Type.GetDeclaredConstructors().Where(Config.ShouldUseConstructor).Select(c => new ConstructorParameters(c)).OrderByDescending(c => c.ParametersCount).ToArray();
+        private ConstructorParameters[] GetConstructors() => GetConstructors(Type, Config).OrderByDescending(c => c.ParametersCount).ToArray(); 
+        public static IEnumerable<ConstructorParameters> GetConstructors(Type type, ProfileMap profileMap) =>
+            type.GetDeclaredConstructors().Where(profileMap.ShouldUseConstructor).Select(c => new ConstructorParameters(c));
         public MemberInfo GetMember(string name) => _nameToMember.Value.GetOrDefault(name);
         private SourceMembers PossibleNames()
         {
@@ -39,25 +43,43 @@ namespace AutoMapper
             IEnumerable<MemberInfo> accessors = ReadAccessors;
             if (Config.MethodMappingEnabled)
             {
-                var publicNoArgMethods = GetPublicNoArgMethods();
-                var publicNoArgExtensionMethods = GetPublicNoArgExtensionMethods(Config.SourceExtensionMethods.Where(Config.ShouldMapMethod));
-                accessors = accessors.Concat(publicNoArgMethods).Concat(publicNoArgExtensionMethods);
+                accessors = AddMethods(accessors);
             }
             foreach (var member in accessors)
             {
-                foreach (var memberName in PossibleNames(member.Name, Config.Prefixes, Config.Postfixes))
+                if (!nameToMember.ContainsKey(member.Name))
                 {
-                    if (!nameToMember.ContainsKey(memberName))
-                    {
-                        nameToMember.Add(memberName, member);
-                    }
+                    nameToMember.Add(member.Name, member);
                 }
+                if (Config.Postfixes.Count == 0 && Config.Prefixes.Count == 0)
+                {
+                    continue;
+                }
+                CheckPrePostfixes(nameToMember, member);
             }
             return nameToMember;
         }
+
+        private IEnumerable<MemberInfo> AddMethods(IEnumerable<MemberInfo> accessors)
+        {
+            var publicNoArgMethods = GetPublicNoArgMethods();
+            var publicNoArgExtensionMethods = GetPublicNoArgExtensionMethods(Config.SourceExtensionMethods.Where(Config.ShouldMapMethod));
+            return accessors.Concat(publicNoArgMethods).Concat(publicNoArgExtensionMethods);
+        }
+
+        private void CheckPrePostfixes(SourceMembers nameToMember, MemberInfo member)
+        {
+            foreach (var memberName in PossibleNames(member.Name, Config.Prefixes, Config.Postfixes))
+            {
+                if (!nameToMember.ContainsKey(memberName))
+                {
+                    nameToMember.Add(memberName, member);
+                }
+            }
+        }
+
         public static IEnumerable<string> PossibleNames(string memberName, List<string> prefixes, List<string> postfixes)
         {
-            yield return memberName;
             foreach (var prefix in prefixes)
             {
                 if (!memberName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
@@ -124,14 +146,14 @@ namespace AutoMapper
             GetProperties(PropertyReadable)
                 .GroupBy(x => x.Name) // group properties of the same name together
                 .Select(x => x.First())
-                .Concat(GetFields(FieldReadable))
+                .Concat(Config.FieldMappingEnabled ? GetFields(FieldReadable) : Array.Empty<MemberInfo>())
                 .ToArray();
         private MemberInfo[] BuildWriteAccessors() =>
             // Multiple types may define the same property (e.g. the class and multiple interfaces) - filter this to one of those properties
             GetProperties(PropertyWritable)
                 .GroupBy(x => x.Name) // group properties of the same name together
                 .Select(x => x.FirstOrDefault(y => y.CanWrite && y.CanRead) ?? x.First()) // favor the first property that can both read & write - otherwise pick the first one
-                .Concat(GetFields(FieldWritable))
+                .Concat(Config.FieldMappingEnabled ? GetFields(FieldWritable) : Array.Empty<MemberInfo>())
                 .ToArray();
         private static bool PropertyReadable(PropertyInfo propertyInfo) => propertyInfo.CanRead;
         private static bool FieldReadable(FieldInfo fieldInfo) => true;

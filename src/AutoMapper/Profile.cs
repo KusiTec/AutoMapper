@@ -45,6 +45,8 @@ namespace AutoMapper
         bool? IProfileConfiguration.ConstructorMappingEnabled => _constructorMappingEnabled;
         bool? IProfileExpressionInternal.MethodMappingEnabled { get; set; }
         bool? IProfileConfiguration.MethodMappingEnabled => this.Internal().MethodMappingEnabled;
+        bool? IProfileExpressionInternal.FieldMappingEnabled { get; set; }
+        bool? IProfileConfiguration.FieldMappingEnabled => this.Internal().FieldMappingEnabled;
         bool? IProfileConfiguration.EnableNullPropagationForQueryMapping => this.Internal().EnableNullPropagationForQueryMapping;
         IEnumerable<Action<PropertyMap, IMemberConfigurationExpression>> IProfileConfiguration.AllPropertyMapActions
             => _allPropertyMapActions;
@@ -93,9 +95,10 @@ namespace AutoMapper
 
         public IMappingExpression CreateMap(Type sourceType, Type destinationType, MemberList memberList)
         {
-            var map = new MappingExpression(new TypePair(sourceType, destinationType), memberList);
+            var types = new TypePair(sourceType, destinationType);
+            var map = new MappingExpression(types, memberList);
             _typeMapConfigs.Add(map);
-            if (sourceType.IsGenericTypeDefinition || destinationType.IsGenericTypeDefinition)
+            if (types.IsGenericTypeDefinition)
             {
                 _openTypeMapConfigs.Add(map);
             }

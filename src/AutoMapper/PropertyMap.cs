@@ -50,7 +50,7 @@ namespace AutoMapper
         public override object NullSubstitute { get; set; }
         public override ValueResolverConfiguration ValueResolverConfig { get; set; }
         public override ValueConverterConfiguration ValueConverterConfig { get; set; }
-        public override IEnumerable<ValueTransformerConfiguration> ValueTransformers => _valueTransformerConfigs;
+        public override IReadOnlyCollection<ValueTransformerConfiguration> ValueTransformers => _valueTransformerConfigs;
 
         public override Type SourceType => ValueConverterConfig?.SourceMember?.ReturnType
                                   ?? ValueResolverConfig?.SourceMember?.ReturnType
@@ -58,8 +58,7 @@ namespace AutoMapper
                                   ?? CustomMapExpression?.ReturnType
                                   ?? SourceMember?.GetMemberType();
 
-        public void ChainMembers(IEnumerable<MemberInfo> members) =>
-            _memberChain.AddRange(members as IList<MemberInfo> ?? members.ToList());
+        public void ChainMembers(IEnumerable<MemberInfo> members) => _memberChain.AddRange(members);
 
         public void ApplyInheritedPropertyMap(PropertyMap inheritedMappedProperty)
         {

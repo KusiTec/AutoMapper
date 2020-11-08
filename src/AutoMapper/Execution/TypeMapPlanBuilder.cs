@@ -13,14 +13,11 @@ namespace AutoMapper.Execution
 
     public class TypeMapPlanBuilder
     {
-        private static readonly Expression<Func<AutoMapperMappingException>> CtorExpression =
-            () => new AutoMapperMappingException(null, null, default, null, null);
-
-        private static readonly Expression<Action<ResolutionContext>> IncTypeDepthInfo =
-            ctxt => ctxt.IncrementTypeDepth(default);
-
-        private static readonly Expression<Action<ResolutionContext>> DecTypeDepthInfo =
-            ctxt => ctxt.DecrementTypeDepth(default);
+        private const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        private static readonly ConstructorInfo ExceptionConstructor = typeof(AutoMapperMappingException).GetConstructor(
+            new[] { typeof(string), typeof(Exception), typeof(TypePair), typeof(TypeMap), typeof(IMemberMap) });
+        private static readonly MethodInfo IncTypeDepthInfo = typeof(ResolutionContext).GetMethod("IncrementTypeDepth", Flags);
+        private static readonly MethodInfo DecTypeDepthInfo = typeof(ResolutionContext).GetMethod("DecrementTypeDepth", Flags);
 
         private readonly IGlobalConfiguration _configurationProvider;
         private readonly ParameterExpression _destination;
@@ -191,12 +188,12 @@ namespace AutoMapper.Execution
             actions.Insert(0, destinationFunc);
             if (_typeMap.MaxDepth > 0)
             {
-                actions.Insert(0, Call(Context, IncTypeDepthInfo.Method(), Constant(_typeMap.Types)));
+                actions.Insert(0, Call(Context, IncTypeDepthInfo, Constant(_typeMap.Types)));
             }
             actions.AddRange(_typeMap.AfterMapActions.Select(afterMapAction => afterMapAction.ReplaceParameters(Source, _destination, Context)));
             if (_typeMap.MaxDepth > 0)
             {
-                actions.Add(Call(Context, DecTypeDepthInfo.Method(), Constant(_typeMap.Types)));
+                actions.Add(Call(Context, DecTypeDepthInfo, Constant(_typeMap.Types)));
             }
             actions.Add(_destination);
 
@@ -329,16 +326,12 @@ namespace AutoMapper.Execution
         private static Expression TryMemberMap(IMemberMap memberMap, Expression memberMapExpression)
         {
             var exception = Parameter(typeof(Exception), "ex");
-
-            var mappingExceptionCtor = ((NewExpression) CtorExpression.Body).Constructor;
-
             return TryCatch(memberMapExpression,
-                        MakeCatchBlock(typeof(Exception), exception,
+                        Catch(exception,
                             Block(
-                                Throw(New(mappingExceptionCtor, Constant("Error mapping types."), exception,
+                                Throw(New(ExceptionConstructor, Constant("Error mapping types."), exception,
                                     Constant(memberMap.TypeMap.Types), Constant(memberMap.TypeMap), Constant(memberMap))),
-                                Default(memberMapExpression.Type))
-                            , null));
+                                Default(memberMapExpression.Type))));
         }
 
         private Expression CreatePropertyMapFunc(IMemberMap memberMap, Expression destination, MemberInfo destinationMember)

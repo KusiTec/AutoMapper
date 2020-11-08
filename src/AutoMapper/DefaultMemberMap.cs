@@ -42,7 +42,7 @@ namespace AutoMapper
         public virtual ValueResolverConfiguration ValueResolverConfig { get => default; set { } }
         public virtual ValueConverterConfiguration ValueConverterConfig { get => default; set { } }
 
-        public virtual IEnumerable<ValueTransformerConfiguration> ValueTransformers => Enumerable.Empty<ValueTransformerConfiguration>();
+        public virtual IReadOnlyCollection<ValueTransformerConfiguration> ValueTransformers => Array.Empty<ValueTransformerConfiguration>();
 
         public MemberInfo SourceMember => CustomMapExpression.GetMember() ?? SourceMembers.LastOrDefault();
   

@@ -93,7 +93,7 @@ namespace AutoMapper.Internal
                 foreach (var memberName in fullMemberName.Split('.'))
                 {
                     var currentType = GetCurrentType(property, type);
-                    yield return property = currentType.GetFieldOrProperty(memberName);
+                    yield return property = currentType.GetInheritedMember(memberName);
                 }
             }
         }

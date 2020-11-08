@@ -209,23 +209,57 @@ namespace AutoMapper
             {
                 return typeMap;
             }
-            foreach (var types in initialTypes.GetRelatedTypePairs().Skip(1))
+            var allSourceTypes = GetTypeInheritance(initialTypes.SourceType);
+            var allDestinationTypes = GetTypeInheritance(initialTypes.DestinationType);
+            foreach (var destinationType in allDestinationTypes)
             {
-                typeMap = GetCachedMap(types);
-                if (typeMap != null)
+                foreach (var sourceType in allSourceTypes)
                 {
-                    return typeMap;
-                }
-                typeMap = FindClosedGenericTypeMapFor(types);
-                if (typeMap != null)
-                {
-                    return typeMap;
+                    if (sourceType == initialTypes.SourceType && destinationType == initialTypes.DestinationType)
+                    {
+                        continue;
+                    }
+                    var types = new TypePair(sourceType, destinationType);
+                    typeMap = GetCachedMap(types);
+                    if (typeMap != null)
+                    {
+                        return typeMap;
+                    }
+                    typeMap = FindClosedGenericTypeMapFor(types);
+                    if (typeMap != null)
+                    {
+                        return typeMap;
+                    }
                 }
             }
             return null;
         }
-
-        private TypeMap GetCachedMap(TypePair types) => _resolvedMaps.GetOrDefault(types);
+        static List<Type> GetTypeInheritance(Type type)
+        {
+            var interfaces = type.GetInterfaces();
+            var lastIndex = interfaces.Length - 1;
+            var types = new List<Type>(interfaces.Length + 2) { type };
+            Type baseType = type;
+            while ((baseType = baseType.BaseType) != null)
+            {
+                types.Add(baseType);
+                foreach (var interfaceType in baseType.GetInterfaces())
+                {
+                    var interfaceIndex = Array.LastIndexOf(interfaces, interfaceType);
+                    if (interfaceIndex != lastIndex)
+                    {
+                        interfaces[interfaceIndex] = interfaces[lastIndex];
+                        interfaces[lastIndex] = interfaceType;
+                    }
+                }
+            }
+            foreach (var interfaceType in interfaces)
+            {
+                types.Add(interfaceType);
+            }
+            return types;
+        }
+        private TypeMap GetCachedMap(in TypePair types) => _resolvedMaps.GetOrDefault(types);
         IEnumerable<IObjectMapper> IGlobalConfiguration.GetMappers() => _mappers;
 
         private void Seal()
@@ -300,7 +334,7 @@ namespace AutoMapper
                 return typeMap;
             }
         }
-        private TypeMap FindClosedGenericTypeMapFor(TypePair typePair)
+        private TypeMap FindClosedGenericTypeMapFor(in TypePair typePair)
         {
             var genericTypePair = typePair.GetOpenGenericTypePair();
             if (genericTypePair.IsEmpty)
@@ -314,11 +348,13 @@ namespace AutoMapper
             ITypeMapConfiguration genericMapConfig;
             ProfileMap profile;
             TypeMap cachedMap;
+            TypePair closedTypes;
             if (userMap != null && userMap.DestinationTypeOverride == null)
             {
                 genericMapConfig = userMap.Profile.GetGenericMap(userMap.Types);
                 profile = userMap.Profile;
                 cachedMap = null;
+                closedTypes = typePair;
             }
             else
             {
@@ -329,13 +365,13 @@ namespace AutoMapper
                 }
                 genericMapConfig = cachedMap.Profile.GetGenericMap(cachedMap.Types);
                 profile = cachedMap.Profile;
-                typePair = cachedMap.Types.CloseGenericTypes(typePair);
+                closedTypes = cachedMap.Types.CloseGenericTypes(typePair);
             }
             if (genericMapConfig == null)
             {
                 return null;
             }
-            var typeMap = profile.CreateClosedGenericTypeMap(genericMapConfig, typePair, this);
+            var typeMap = profile.CreateClosedGenericTypeMap(genericMapConfig, closedTypes, this);
             cachedMap?.CopyInheritedMapsTo(typeMap);
             return typeMap;
         }

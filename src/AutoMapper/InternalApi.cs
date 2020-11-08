@@ -173,6 +173,10 @@ namespace AutoMapper.Internal
         /// </summary>
         bool? MethodMappingEnabled { get; set; }
         /// <summary>
+        /// Disable fields mapping. Use this if you don't intend to have AutoMapper try to map from/to fields.
+        /// </summary>
+        bool? FieldMappingEnabled { get; set; }
+        /// <summary>
         /// Specify common configuration for all type maps.
         /// </summary>
         /// <param name="configuration">configuration callback</param>

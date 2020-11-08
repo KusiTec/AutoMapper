@@ -35,6 +35,7 @@ namespace AutoMapper
             EnableNullPropagationForQueryMapping = profile.EnableNullPropagationForQueryMapping ?? configuration?.EnableNullPropagationForQueryMapping ?? false;
             ConstructorMappingEnabled = profile.ConstructorMappingEnabled ?? globalProfile?.ConstructorMappingEnabled ?? true;
             MethodMappingEnabled = profile.MethodMappingEnabled ?? globalProfile?.MethodMappingEnabled ?? true;
+            FieldMappingEnabled = profile.FieldMappingEnabled ?? globalProfile?.FieldMappingEnabled ?? true;
             ShouldMapField = profile.ShouldMapField ?? configuration?.ShouldMapField ?? (p => p.IsPublic);
             ShouldMapProperty = profile.ShouldMapProperty ?? configuration?.ShouldMapProperty ?? (p => p.IsPublic());
             ShouldMapMethod = profile.ShouldMapMethod ?? configuration?.ShouldMapMethod ?? (p => !p.IsSpecialName);
@@ -110,6 +111,7 @@ namespace AutoMapper
         public bool ConstructorMappingEnabled { get; }
         public bool EnableNullPropagationForQueryMapping { get; }
         public bool MethodMappingEnabled { get; }
+        public bool FieldMappingEnabled { get; }
         public string Name { get; }
         public Func<FieldInfo, bool> ShouldMapField { get; }
         public Func<PropertyInfo, bool> ShouldMapProperty { get; }
@@ -118,12 +120,12 @@ namespace AutoMapper
 
         public IEnumerable<Action<PropertyMap, IMemberConfigurationExpression>> AllPropertyMapActions { get; }
         public IEnumerable<Action<TypeMap, IMappingExpression>> AllTypeMapActions { get; }
-        public IEnumerable<string> GlobalIgnores { get; }
+        public IReadOnlyCollection<string> GlobalIgnores { get; }
         public IEnumerable<IMemberConfiguration> MemberConfigurations => _memberConfigurations;
         public IEnumerable<MethodInfo> SourceExtensionMethods { get; }
         public List<string> Prefixes { get; }
         public List<string> Postfixes { get; }
-        public IEnumerable<ValueTransformerConfiguration> ValueTransformers { get; }
+        public IReadOnlyCollection<ValueTransformerConfiguration> ValueTransformers { get; }
         public TypeDetails GetTypeDetails(Type type) => _typeDetails.GetOrDefault(type);
         public TypeDetails CreateTypeDetails(Type type) => _typeDetails.GetOrAdd(type);
 
@@ -207,7 +209,7 @@ namespace AutoMapper
             ApplyMemberMaps(typeMap, configurationProvider);
         }
 
-        public TypeMap CreateClosedGenericTypeMap(ITypeMapConfiguration openMapConfig, TypePair closedTypes, IGlobalConfiguration configurationProvider)
+        public TypeMap CreateClosedGenericTypeMap(ITypeMapConfiguration openMapConfig, in TypePair closedTypes, IGlobalConfiguration configurationProvider)
         {
             TypeMap closedMap;
             lock (configurationProvider)
